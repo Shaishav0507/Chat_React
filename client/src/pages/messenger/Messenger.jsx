@@ -6,13 +6,42 @@ import Topbar from "../../components/topbar/Topbar"
 import { AuthContext } from "../../context/AuthContext"
 import "./messenger.css"
 import axios from axios;
+import {io} from "socket.io-client";
 
 export default function Messenger() {
     const [conversations, setConversations] = useState([]);
     const [currentChat, setcurrentChat] = useState(null);
     const [messages, setmessages] = useState([]);
+    const [socket, setsocket] = useState(null)
+    const [newMessages, setnewMessages] = useState("");
+    const [arrivalMessages, setarrivalMessages] = useState(null);
     const {user} = useContext(AuthContext);
+    const scrollRef = useRef();
+    const socket = useRef();
 
+    useEffect(()=>{
+        socket.current = io("ws://localhost:8900");
+        socket.current.on("getMessage", data =>{
+            setarrivalMessages({
+                sender: data.senderId,
+                text: data.text,
+                createdAt: Date.now(),
+            });
+        });
+    },[])
+
+    useEffect(()=>{
+        arrivalMessages && currentChat?.members.includes(arrivalMessages.sender) && 
+        setmessages((prev)=>[...prev, arrivalMessages]);
+    },[arrivalMessages, currentChat]);
+
+    useEffecr(()=>{
+        socket.current.emit("addUser", user._id);
+        socket.current.on("getUsers", users=>{
+            console.log(users)
+        })
+    },[user]);
+   
     useEffect(() => {
         const getConversations = async()=>{
             try{
@@ -37,6 +66,35 @@ export default function Messenger() {
         getMessages()
     },[currentChat]);
 
+    const handleSubmit = async (e)=> {
+        e.preventDefault();
+        const message = {
+            sender: user._id,
+            text: newMessages,
+            conversationId: currentChat._id,
+        };
+
+        const receiverId = currentChat.members.find(member=> member !== user._id)
+
+        socket.current.emit("sendMessage", {
+            senderId: user._id,
+            receiverId,
+            text: newMessages,
+        });
+
+        try{
+            const res = await axios.post("/messages", message);
+            setmessages([...messages, res.data])
+            setnewMessages("")
+        }catch(err){
+            console.log(err)
+        }
+    };
+
+    useEffect(() => {
+        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages])
+
     return (
         <>
         <Topbar />
@@ -58,12 +116,14 @@ export default function Messenger() {
                     <>
                     <div className="chatBoxTop">
                         {messages.map(m=>(
+                            <div ref={scrollRef}>
                             <Message  message={m} own={m.sender === user._id} />
+                            </div>
                         ))}
                     </div>
                     <div className="chatBoxBottom">
-                        <textarea className="chatMessageInput" placeholder="Write something..."></textarea>
-                        <button className="chatSubmitButton">Send</button>
+                        <textarea className="chatMessageInput" placeholder="Write something..." onChange={(e)=> setnewMessages(e.targetvalue)} value={newMessages}></textarea>
+                        <button className="chatSubmitButton" onClick={handleSubmit}>Send</button>
                     </div></> : <span className="noConversationText">Open a comversation to start a chat.</span>}
                 </div>
             </div>
