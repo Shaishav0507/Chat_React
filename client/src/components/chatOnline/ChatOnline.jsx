@@ -1,29 +1,43 @@
 import "./chatOnline.css"
 
-export default function ChatOnline() {
+export default function ChatOnline({onlineUsers, currentId, setcurrentChat}) {
+
+    const [friends, setFriends] = useState([]);
+    const [onlineFriends, setOnlineFriends] = useState([]);
+    const PF = process.env.REACT_APP_PUBLIC_FOLDER;
+
+    useEffect(()=>{
+        const getFriends = async ()=> {
+            const res = await axios.get("/users/friends" + currentId);
+            setFriends(res.data);
+        }
+        getFriends();
+    },[currentId]);
+
+    useEffect(()=>{
+        setOnlineFriends(friends.filter((f)=>onlineUsers.includes(f._id)));
+    },[friends, onlineUsers]);
+
+    const handleClick = async (user) => {
+        try{
+            const res = await axios.get(`/conversations/find/${currentId}/${user._id}`);
+            setcurrentChat(res.data);
+        }catch(err){
+            console.log(err)
+        }
+    }
+
     return (
         <div className="chatOnline">
-            <div className="chatOnlineFriend">
+            {onlineFriends.map((o)=>(
+            <div className="chatOnlineFriend" onClick={()=> handleClick(o) }>
                 <div className="chatOnlineImgContainer">
-                    <img className="chatOnlineImg" src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MXx8cGVyc29ufGVufDB8fDB8fA%3D%3D&ixlib=rb-1.2.1&w=1000&q=80" />
+                    <img className="chatOnlineImg" src={o?.profilePicture ? PF+o.profilePicture: PF+"person/noAvatar.png"} />
                         <div className="chatOnlineBadge"></div>
                 </div>
-                <span className="chatOnlineName">John Doe</span>
+                <span className="chatOnlineName">{o?.username}</span>
             </div>
-            <div className="chatOnlineFriend">
-                <div className="chatOnlineImgContainer">
-                    <img className="chatOnlineImg" src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MXx8cGVyc29ufGVufDB8fDB8fA%3D%3D&ixlib=rb-1.2.1&w=1000&q=80" />
-                        <div className="chatOnlineBadge"></div>
-                </div>
-                <span className="chatOnlineName">John Doe</span>
-            </div>
-            <div className="chatOnlineFriend">
-                <div className="chatOnlineImgContainer">
-                    <img className="chatOnlineImg" src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MXx8cGVyc29ufGVufDB8fDB8fA%3D%3D&ixlib=rb-1.2.1&w=1000&q=80" />
-                        <div className="chatOnlineBadge"></div>
-                </div>
-                <span className="chatOnlineName">John Doe</span>
-            </div>
+            ))}
         </div>
     )
 }
